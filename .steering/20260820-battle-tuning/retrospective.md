@@ -13,7 +13,7 @@
 
 - 対象リポジトリ: 本リポジトリ
 - ブランチ: feature/battle-tuning
-- コミット: （コミット後に追記）
+- コミット: 485847e70d2b257677440dc821e2eeb0af6400aa
 
 ## セキュリティレビュー（security-engineer）の結果
 
