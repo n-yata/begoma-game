@@ -1,0 +1,49 @@
+# Deploy: main の CI 成功後に GitHub Pages へデプロイする
+# 権限は GITHUB_TOKEN の Pages 書き込みのみ（外部シークレット不使用）
+name: Deploy
+
+on:
+  workflow_run:
+    workflows: [CI]
+    types: [completed]
+    branches: [main]
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: pages
+  cancel-in-progress: true
+
+jobs:
+  deploy:
+    # fork の main ブランチからの PR でも workflow_run は head_branch=main で発火しうるため、
+    # 「自リポジトリへの push 由来の CI 成功」だけに限定する（第三者によるデプロイ発火・
+    # 進行中デプロイのキャンセル妨害を防ぐ）
+    if: >
+      github.event.workflow_run.conclusion == 'success' &&
+      github.event.workflow_run.event == 'push' &&
+      github.event.workflow_run.head_repository.full_name == github.repository
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          # ビルドのみで push しないため、トークンを .git/config に残さない
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - run: npm run build
+      - uses: actions/configure-pages@v5
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: dist
+      - id: deployment
+        uses: actions/deploy-pages@v4

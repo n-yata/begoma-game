@@ -136,6 +136,18 @@ export class MatchStateMachine {
     this.transition('title');
   }
 
+  /**
+   * リザルト: マッチを中断してコマ選択へ戻る（マッチ未決着時のみ。全状態を初期化する）。
+   * 決着後は backToSelect が同じ役割を持つため、こちらは許可しない
+   */
+  abandonMatch(): void {
+    if (this._phase !== 'result' || this.matchOutcome !== null)
+      throw new InvalidTransitionError(this._phase, 'abandonMatch');
+    this._selectedKoma = null;
+    this.clearRoundState();
+    this.transition('komaSelect');
+  }
+
   /** リザルト: コマ選択へ戻る（マッチ決着時のみ。全状態を初期化する） */
   backToSelect(): void {
     if (this._phase !== 'result' || this.matchOutcome === null)

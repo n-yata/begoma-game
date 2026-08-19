@@ -37,12 +37,14 @@ export class ResultScreen {
   private reason: HTMLDivElement;
   private score: HTMLDivElement;
   private nextRoundBtn: HTMLButtonElement;
+  private abandonBtn: HTMLButtonElement;
   private rematchBtn: HTMLButtonElement;
   private backBtn: HTMLButtonElement;
 
   constructor(
     parent: HTMLElement,
     onNextRound: () => void,
+    onAbandonMatch: () => void,
     onRematch: () => void,
     onBackToSelect: () => void,
   ) {
@@ -67,6 +69,12 @@ export class ResultScreen {
     this.nextRoundBtn.addEventListener('click', onNextRound);
     this.root.appendChild(this.nextRoundBtn);
 
+    this.abandonBtn = document.createElement('button');
+    this.abandonBtn.className = 'btn btn--sub';
+    this.abandonBtn.textContent = 'マッチを中断してコマ選択へ';
+    this.abandonBtn.addEventListener('click', onAbandonMatch);
+    this.root.appendChild(this.abandonBtn);
+
     this.rematchBtn = document.createElement('button');
     this.rematchBtn.className = 'btn';
     this.rematchBtn.textContent = '同じコマで再戦';
@@ -90,6 +98,7 @@ export class ResultScreen {
     this.reason.textContent = verdict.outcome === 'draw' ? '同時に決着！' : reasonText(verdict);
     this.score.textContent = `あなた ${String(score.player)} - ${String(score.cpu)} CPU`;
     this.nextRoundBtn.style.display = decided ? 'none' : '';
+    this.abandonBtn.style.display = decided ? 'none' : '';
     this.rematchBtn.style.display = decided ? '' : 'none';
     this.backBtn.style.display = decided ? '' : 'none';
     this.root.style.display = 'flex';

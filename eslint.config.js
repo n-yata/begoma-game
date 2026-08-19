@@ -1,11 +1,26 @@
 import eslint from '@eslint/js';
 import tseslint from 'typescript-eslint';
+import importX from 'eslint-plugin-import-x';
+import { createTypeScriptImportResolver } from 'eslint-import-resolver-typescript';
 
 export default tseslint.config(
   eslint.configs.recommended,
   ...tseslint.configs.recommended,
   {
     ignores: ['dist/', 'coverage/', 'node_modules/'],
+  },
+  {
+    // 循環依存の機械的検出（20260819 の申し送り M-5）
+    files: ['src/**/*.ts', 'tests/**/*.ts'],
+    plugins: { 'import-x': importX },
+    settings: {
+      'import-x/resolver-next': [createTypeScriptImportResolver()],
+      // .ts を依存グラフの解析対象にする（無いと no-cycle が .ts を辿らず沈黙する）
+      'import-x/extensions': ['.ts'],
+    },
+    rules: {
+      'import-x/no-cycle': 'error',
+    },
   },
   {
     // src/game/ は純粋レイヤー: ライブラリ・DOM・他レイヤーへの依存を禁止する

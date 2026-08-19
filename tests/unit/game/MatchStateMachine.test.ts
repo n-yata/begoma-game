@@ -190,5 +190,29 @@ describe('MatchStateMachine', () => {
       // 3本勝負（2勝先取）の前提が変わったらテストごと見直すこと
       expect(ROUNDS_TO_WIN).toBe(2);
     });
+
+    it('abandonMatch_beforeMatchDecided_clearsAllStateAndReturnsToSelect', () => {
+      // machineAt('result') は 1-0（未決着）
+      const m = machineAt('result');
+      m.abandonMatch();
+      expect(m.phase).toBe('komaSelect');
+      expect(m.selectedKoma).toBeNull();
+      expect(m.verdict).toBeNull();
+      expect(m.score).toEqual({ player: 0, cpu: 0 });
+      expect(m.roundNumber).toBe(1);
+      expect(m.matchOutcome).toBeNull();
+    });
+
+    it('abandonMatch_afterMatchDecided_throws', () => {
+      // 決着後は backToSelect が同じ役割を持つため、中断は許可しない
+      expect(() => machineAtDecidedResult().abandonMatch()).toThrow(InvalidTransitionError);
+    });
+
+    it('abandonMatch_outsideResult_throws', () => {
+      expect(() => machineAt('title').abandonMatch()).toThrow(InvalidTransitionError);
+      expect(() => machineAt('komaSelect').abandonMatch()).toThrow(InvalidTransitionError);
+      expect(() => machineAt('aiming').abandonMatch()).toThrow(InvalidTransitionError);
+      expect(() => machineAt('battle').abandonMatch()).toThrow(InvalidTransitionError);
+    });
   });
 });
