@@ -110,8 +110,8 @@ npm run build      # dist/ に静的ファイルを出力
 
 | ワークフロー | トリガー | 内容 |
 |-------------|---------|------|
-| `ci.yml` | PR・main への push | `npm ci` → lint → typecheck → test → build → `npm audit` |
-| `deploy.yml` | main への push（CI 成功後） | `npm run build` → GitHub Pages へデプロイ |
+| `ci.yml` | PR・main への push | `npm ci` → lint → typecheck → format:check → test → build → `npm audit` → E2E（Playwright/chromium） |
+| `deploy.yml` | main への push（CI 成功後に `workflow_run` で連鎖） | `npm run build` → GitHub Pages へデプロイ |
 
 - デプロイに必要な権限は GitHub Actions の `GITHUB_TOKEN`（Pages 書き込み）のみ。
   外部シークレットを追加する場合はリポジトリシークレットで管理し、値をドキュメントに書かない

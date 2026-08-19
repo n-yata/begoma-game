@@ -2,6 +2,12 @@
 <html lang="ja">
   <head>
     <meta charset="UTF-8" />
+    <!-- script-src の 'wasm-unsafe-eval' は Rapier(WASM) のインスタンス化に必須。
+         style-src 'unsafe-inline' と connect-src ws:/wss: は Vite 開発サーバー(HMR)用 -->
+    <meta
+      http-equiv="Content-Security-Policy"
+      content="default-src 'self'; script-src 'self' 'wasm-unsafe-eval'; style-src 'self' 'unsafe-inline'; connect-src 'self' ws: wss:; img-src 'self' data:; object-src 'none'; base-uri 'self'"
+    />
     <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no" />
     <title>べーゴマバトル - begoma-game</title>
   </head>

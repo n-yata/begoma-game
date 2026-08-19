@@ -111,13 +111,37 @@ function main(): void {
   const resultScreen = new ResultScreen(
     overlay,
     safe(() => sm.nextRound()),
+    safe(() => sm.abandonMatch()),
     safe(() => sm.rematch()),
     safe(() => sm.backToSelect()),
   );
 
+  /** ドラッグ中の投擲ガイド（床面矢印）。投擲換算は game 層に委ね、描画だけ engine へ渡す */
+  function updateThrowArrow(drag: Vec2): void {
+    if (sm.phase !== 'aiming' || sm.selectedKoma === null) return;
+    const preview = computeThrow(drag, KOMA_SPECS[sm.selectedKoma]);
+    if (!preview) {
+      renderer.hideThrowGuide();
+      return;
+    }
+    // 画面座標(y下向き) → ワールド水平面(x, z)。applyThrow と同じ変換規約
+    renderer.updateThrowGuide(
+      { x: PLAYER_SPAWN.x, y: PLAYER_SPAWN.y - 0.2, z: PLAYER_SPAWN.z },
+      preview.velocity.x,
+      preview.velocity.y,
+      preview.power,
+    );
+  }
+
   const input = new InputHandler(app, {
-    onDragMove: (drag) => battleScreen.throwGuide.updateDrag(drag),
-    onDragEnd: (drag) => void startBattle(drag),
+    onDragMove: (drag) => {
+      battleScreen.throwGuide.updateDrag(drag);
+      updateThrowArrow(drag);
+    },
+    onDragEnd: (drag) => {
+      renderer.hideThrowGuide();
+      void startBattle(drag);
+    },
   });
 
   async function startBattle(drag: Vec2): Promise<void> {
@@ -251,6 +275,7 @@ function main(): void {
     titleScreen.hide();
     komaSelectScreen.hide();
     resultScreen.hide();
+    renderer.hideThrowGuide();
     input.enabled = false;
 
     switch (phase) {

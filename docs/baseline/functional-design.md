@@ -230,7 +230,7 @@ ringOut = |xz位置| > tokoRadius + margin  or  y < floorY - fallMargin
 | コマ選択 | `komaSelect` | `KomaSelectScreen` | 3種からコマを選ぶ | コマ3種のカード（名前・ステータス表示）・決定ボタン |
 | 投擲 | `aiming` | `BattleScreen`（HUD: 投擲ガイド） | ドラッグで投げ込む | 3Dシーン・ドラッグ軌道ガイド・パワー表示 |
 | 対戦 | `battle` | `BattleScreen`（HUD: 回転ゲージ） | ぶつかり合いを見守る | 3Dシーン・両者の回転ゲージ |
-| リザルト | `result` | `ResultScreen` | ラウンド/マッチの勝敗表示と次への導線 | 勝敗・決着理由・ラウンドスコア。マッチ未決着時は「次のラウンドへ」、決着時は「同じコマで再戦」「コマ選択へ」 |
+| リザルト | `result` | `ResultScreen` | ラウンド/マッチの勝敗表示と次への導線 | 勝敗・決着理由・ラウンドスコア。マッチ未決着時は「次のラウンドへ」「マッチを中断してコマ選択へ」、決着時は「同じコマで再戦」「コマ選択へ」 |
 
 ### 画面遷移図
 
@@ -242,6 +242,7 @@ stateDiagram-v2
     aiming --> battle: 投擲（ドラッグして離す）
     battle --> result: ラウンド決着（場外/停止/失敗）
     result --> aiming: 次のラウンドへ（マッチ未決着）
+    result --> komaSelect: マッチを中断（マッチ未決着・全状態初期化）
     result --> aiming: 同じコマで再戦（マッチ決着時・スコアリセット）
     result --> komaSelect: コマ選択へ（マッチ決着時）
 ```

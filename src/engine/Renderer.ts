@@ -17,6 +17,7 @@ export class Renderer {
   private camera: THREE.PerspectiveCamera;
   private komaMeshes = new Map<KomaSide, THREE.Group>();
   private komaAngles = new Map<KomaSide, number>();
+  private throwArrow: THREE.ArrowHelper | null = null;
 
   constructor(canvas: HTMLCanvasElement) {
     const gl = canvas.getContext('webgl2');
@@ -88,6 +89,32 @@ export class Renderer {
     const wobble = Math.max(0, 1 - spin / 60);
     mesh.rotation.x = Math.sin(angle * 0.35) * wobble * 0.35;
     mesh.rotation.z = Math.cos(angle * 0.29) * wobble * 0.35;
+  }
+
+  /**
+   * 投擲ガイドの床面矢印を更新する（cross-cutting.md「HUD」の仕様）。
+   * origin を起点に水平方向 (dirX, dirZ) へ、パワーに応じた長さで表示する
+   */
+  updateThrowGuide(origin: Vec3, dirX: number, dirZ: number, power: number): void {
+    const len = Math.hypot(dirX, dirZ);
+    if (len < 1e-6) {
+      this.hideThrowGuide();
+      return;
+    }
+    const dir = new THREE.Vector3(dirX / len, 0, dirZ / len);
+    const length = 0.5 + power * 0.9;
+    if (!this.throwArrow) {
+      this.throwArrow = new THREE.ArrowHelper(dir, new THREE.Vector3(), length, PLAYER_COLOR);
+      this.scene.add(this.throwArrow);
+    }
+    this.throwArrow.position.set(origin.x, origin.y, origin.z);
+    this.throwArrow.setDirection(dir);
+    this.throwArrow.setLength(length, 0.18, 0.12);
+    this.throwArrow.visible = true;
+  }
+
+  hideThrowGuide(): void {
+    if (this.throwArrow) this.throwArrow.visible = false;
   }
 
   render(): void {
