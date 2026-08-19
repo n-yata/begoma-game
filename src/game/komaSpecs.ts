@@ -34,8 +34,8 @@ export const WEAK_SPIN_RATIO = 0.55;
  * それを拾える値にしている。同タイプ同士の互角勝負では発生せず、回転停止で決着する
  */
 export const KNOCKBACK_MIN_GAP = 0.04;
-/** ノックバックで加える追加速度 [m/s]（トコの縁 0.24m を摩擦込みで越えられる速さ） */
-export const KNOCKBACK_SPEED = 4.4;
+/** ノックバックで加える追加速度 [m/s]（トコの縁（深さ0.45m）を摩擦込みで越えられる速さ） */
+export const KNOCKBACK_SPEED = 5.2;
 /** ノックバック判定の接触距離 [m]（コマ2個分 + 余裕） */
 export const KNOCKBACK_CONTACT_DIST = KOMA_RADIUS * 2 + 0.02;
 /** CPU 投擲の角度ゆらぎ [rad]（±10°） */

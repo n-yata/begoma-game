@@ -27,8 +27,9 @@ export class Renderer {
 
     this.scene.background = new THREE.Color(0x1a1a2e);
     this.camera = new THREE.PerspectiveCamera(50, 1, 0.1, 50);
-    this.camera.position.set(0, 3.0, 2.6);
-    this.camera.lookAt(0, -0.1, 0);
+    // 低めの角度で椀の窪み（断面）が見える構図にする
+    this.camera.position.set(0, 2.0, 3.2);
+    this.camera.lookAt(0, -0.3, 0);
 
     const ambient = new THREE.AmbientLight(0xffffff, 0.7);
     const dir = new THREE.DirectionalLight(0xffffff, 1.4);
@@ -44,10 +45,10 @@ export class Renderer {
     const h = window.innerHeight;
     this.renderer.setSize(w, h, false);
     this.camera.aspect = w / h;
-    // 縦持ちでもトコ全体が入るよう、縦長時は引きにする
-    this.camera.position.z = w < h ? 3.4 : 2.6;
-    this.camera.position.y = w < h ? 3.6 : 3.0;
-    this.camera.lookAt(0, -0.1, 0);
+    // 縦持ちでもトコ全体が入るよう、縦長時は引きにする。角度は低めを保ち窪みを見せる
+    this.camera.position.z = w < h ? 4.0 : 3.2;
+    this.camera.position.y = w < h ? 2.5 : 2.0;
+    this.camera.lookAt(0, -0.3, 0);
     this.camera.updateProjectionMatrix();
   }
 
