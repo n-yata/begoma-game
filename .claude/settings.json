@@ -1,0 +1,26 @@
+{
+  "permissions": {
+    "additionalDirectories": ["../spec-kit"],
+    "deny": [
+      "Edit(../spec-kit/**)",
+      "Write(../spec-kit/**)",
+      "NotebookEdit(../spec-kit/**)",
+      "Edit(C:/develop/workspace-claude/spec-kit/**)",
+      "Write(C:/develop/workspace-claude/spec-kit/**)",
+      "NotebookEdit(C:/develop/workspace-claude/spec-kit/**)"
+    ]
+  },
+  "hooks": {
+    "PreToolUse": [
+      {
+        "matcher": "Bash|PowerShell",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "powershell -NoProfile -ExecutionPolicy Bypass -File \"$CLAUDE_PROJECT_DIR/.claude/hooks/block-no-verify.ps1\""
+          }
+        ]
+      }
+    ]
+  }
+}

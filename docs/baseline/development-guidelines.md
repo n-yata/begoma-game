@@ -1,0 +1,94 @@
+# 開発ガイドライン (Development Guidelines)
+
+作成日: 2026-08-19
+工程: 横断 — **このプロジェクト固有の規約差分**
+
+> **汎用規約（コーディング規約・Git 運用・テスト戦略・コードレビュー基準）の正本は
+> kit リポジトリの `<kit>/reference/rules/`（索引は `/kit-guidelines`）。ここには複製しない。**
+> 本書には、このプロジェクト**固有**の差分・決定と、環境・セットアップ・CI/CD だけを書く。
+
+## プロジェクト固有の規約差分
+
+### レイヤー純粋性の強制（このプロジェクト最重要の規約）
+
+- `src/game/` は **three / rapier / DOM API を import してはいけない**。
+  理由: 中核ロジック（投擲変換・減衰・判定・CPU）をテスト可能・移植可能（将来のオンライン対戦での
+  サーバー実行）に保つため
+- ESLint の `no-restricted-imports` / import 制約でレイヤー違反を機械的に検出する
+- レイヤーの依存ルールは [`repository-structure.md`](./repository-structure.md)「依存関係のルール」が正本
+
+### 乱数・時刻の扱い
+
+- `Math.random()` の直接呼び出しは禁止。`src/game/random.ts` のシード注入可能な乱数を使う。
+  理由: テスト再現性と、将来の決定的シミュレーション（オンライン対戦）の布石
+- 物理更新は実時間に依存させない（固定タイムステップ 60Hz）。`Date.now()` をゲームロジックで使わない
+
+### ゲームバランス定数
+
+- 投擲・減衰・判定のパラメータ（`dragMin/Max`, `vMin/Max`, `spinStopThreshold` 等）は
+  マジックナンバーにせず `src/game/` 内の named export 定数に集約する。
+  理由: バランス調整が1箇所で済み、テストが定数を参照できる
+
+### DOM 操作
+
+- `innerHTML` への動的文字列挿入は禁止。`textContent` / DOM API で構築する
+  （`architecture.md`「セキュリティアーキテクチャ」が正本）
+
+### ブランチ戦略（汎用規約からの簡略化）
+
+- `develop` ブランチは置かず、**main + feature ブランチ**のみで運用する。
+  理由: 開発者1名＋静的配信で、develop を挟む利点がない
+- ブランチ名・コミットメッセージ（Conventional Commits）・PR プロセスは kit の Git 運用規約に従う
+
+## テスト方針（プロジェクト固有の目標値）
+
+> 戦略の詳細は [`docs/specs/_shared/cross-cutting.md`](../specs/_shared/cross-cutting.md)「テスト戦略」が正本。
+
+- カバレッジ目標: `src/game/` で **90%**（中核ロジックが主眼）
+- `src/engine/`・`src/ui/` はユニットカバレッジを課さない（統合・E2E で担保）
+- 物理を含むテストは必ず固定シードで書く
+
+## 開発環境セットアップ
+
+### 必要なツール
+
+| ツール | バージョン | インストール方法 |
+|--------|-----------|-----------------|
+| Node.js | v22 LTS | https://nodejs.org/ または nvm |
+| npm | 10.x | Node.js に同梱 |
+
+### セットアップ手順
+
+```bash
+# 1. リポジトリのクローン
+git clone <REPO_URL>
+cd begoma-game
+
+# 2. 依存関係のインストール
+npm ci
+
+# 3. 開発サーバーの起動
+npm run dev        # http://localhost:5173
+
+# 4. テスト
+npm run test       # ユニット＋統合（Vitest）
+npm run test:e2e   # E2E（Playwright。初回は npx playwright install）
+
+# 5. ビルド
+npm run build      # dist/ に静的ファイルを出力
+```
+
+### 環境変数
+
+**なし。** ランタイム・ビルドとも環境変数を必要としない（シークレット・外部接続を持たないため）。
+将来導入する場合は `VITE_` プレフィックスで定義し、本節に一覧を追記する。
+
+## CI/CD
+
+| ワークフロー | トリガー | 内容 |
+|-------------|---------|------|
+| `ci.yml` | PR・main への push | `npm ci` → lint → typecheck → test → build → `npm audit` |
+| `deploy.yml` | main への push（CI 成功後） | `npm run build` → GitHub Pages へデプロイ |
+
+- デプロイに必要な権限は GitHub Actions の `GITHUB_TOKEN`（Pages 書き込み）のみ。
+  外部シークレットを追加する場合はリポジトリシークレットで管理し、値をドキュメントに書かない

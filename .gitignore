@@ -1,0 +1,31 @@
+*.log
+
+# ビルド・依存・テスト出力
+node_modules/
+dist/
+coverage/
+test-results/
+playwright-report/
+
+# OS が自動生成するファイル
+.DS_Store
+Thumbs.db
+
+# 資格情報ファイル(誤配置時の事故防止)
+*.pem
+*.key
+*.p12
+id_rsa*
+
+# 資格情報の実値
+.env
+.env.*
+# 否定パターンは後勝ちのため、必ず .env.* より後に書く
+!.env.example
+
+# Claude Code のマシンローカル設定・一時ファイル
+# session-env/ は環境変数の値を含みうるため、必ず除外する
+# スラッシュを含むパターンは .gitignore からの相対パスにアンカーされるため、
+# サブディレクトリ配下にも効かせるには **/ が必要
+**/.claude/settings.local.json
+**/.claude/session-env/
