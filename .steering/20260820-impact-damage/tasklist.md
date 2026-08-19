@@ -22,4 +22,4 @@
 - [x] functional-design.md の衝突減衰の式を実装に追随（最低チップ量を明記）
 - [x] 振り返り記録（retrospective.md）
 - [x] セキュリティレビュー（クルトワ）: Critical/High/Medium 0件
-- [ ] コミット（明示指定）→ main へマージ → ブランチ削除
+- [x] コミット（07b2c92。明示指定）→ main へマージ → ブランチ削除
