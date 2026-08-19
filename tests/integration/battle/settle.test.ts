@@ -2,7 +2,12 @@ import { beforeAll, describe, expect, it } from 'vitest';
 import type { KomaState } from '../../../src/types/koma';
 import { KOMA_SPECS } from '../../../src/game/komaSpecs';
 import { computeThrow } from '../../../src/game/throwCalc';
-import { applyImpactDecay, decaySpin, resolveAttacker } from '../../../src/game/spin';
+import {
+  applyImpactDecay,
+  computeKnockback,
+  decaySpin,
+  resolveAttacker,
+} from '../../../src/game/spin';
 import { judge, updateKomaStatus } from '../../../src/game/judge';
 import { decideCpuThrow } from '../../../src/game/cpu';
 import { createRng } from '../../../src/game/random';
@@ -14,10 +19,9 @@ const CPU_SPAWN = { x: 0, y: 0.35, z: -0.95 };
 /** 打ち切り上限: 実時間 120 秒相当。回転減衰だけでも必ずこれ以内に決着する */
 const MAX_STEPS = 120 * 60;
 
-let world: PhysicsWorld;
-
 beforeAll(async () => {
-  world = await PhysicsWorld.create();
+  // WASM 初期化を先に済ませる（2回目以降の create は軽い）
+  await PhysicsWorld.create();
 });
 
 interface BattleResult {
@@ -27,8 +31,15 @@ interface BattleResult {
   finalStates: Record<KomaSide, KomaState>;
 }
 
-/** main.ts の battleStep と同じパイプラインをヘッドレスで回す */
-function runBattle(seed: number, playerDrag: { x: number; y: number }): BattleResult {
+/**
+ * main.ts の battleStep と同じパイプラインをヘッドレスで回す。
+ * 決定性を保つため、対戦ごとに新しいワールドを作る（使い回すと内部状態が残り再現しない）
+ */
+async function runBattle(
+  seed: number,
+  playerDrag: { x: number; y: number },
+): Promise<BattleResult> {
+  const world = await PhysicsWorld.create();
   const rng = createRng(seed);
   const playerSpec = KOMA_SPECS.balance;
   const playerThrow = computeThrow(playerDrag, playerSpec);
@@ -85,6 +96,27 @@ function runBattle(seed: number, playerDrag: { x: number; y: number }): BattleRe
       player: updateKomaStatus(states.player, playerSpin, result.koma.player),
       cpu: updateKomaStatus(states.cpu, cpuSpin, result.koma.cpu),
     };
+    // main.ts の battleStep と同じ勢い負けノックバック
+    const distance = Math.hypot(
+      states.player.position.x - states.cpu.position.x,
+      states.player.position.z - states.cpu.position.z,
+    );
+    const knock = computeKnockback(
+      distance,
+      states.player.spin / playerThrow.initialSpin,
+      states.cpu.spin / cpuThrow.initialSpin,
+    );
+    if (knock) {
+      const other = knock.target === 'player' ? 'cpu' : 'player';
+      world.addHorizontalVelocity(
+        knock.target,
+        {
+          x: states[knock.target].position.x - states[other].position.x,
+          z: states[knock.target].position.z - states[other].position.z,
+        },
+        knock.deltaV,
+      );
+    }
     if (
       (prevRingOut.player && !states.player.ringOut) ||
       (prevRingOut.cpu && !states.cpu.ringOut)
@@ -104,10 +136,13 @@ function isDefeated(state: KomaState): boolean {
 }
 
 describe('headless battle (physics + game logic)', () => {
-  it('normalThrow_alwaysSettles_andRingOutNeverReverts', () => {
+  it('normalThrow_alwaysSettles_andRingOutNeverReverts', async () => {
     // 複数シードで通しプレイが必ず決着することを確認する
     for (const seed of [1, 7, 42, 1234, 99999]) {
-      const { verdict, ringOutEverReverted, finalStates } = runBattle(seed, { x: 10, y: 180 });
+      const { verdict, ringOutEverReverted, finalStates } = await runBattle(seed, {
+        x: 10,
+        y: 180,
+      });
       expect(ringOutEverReverted).toBe(false);
       // 決着と最終状態の整合: 勝敗に対応する側へ敗北条件フラグが立っている
       if (verdict.outcome === 'playerWin') {
@@ -126,25 +161,26 @@ describe('headless battle (physics + game logic)', () => {
     }
   }, 60000);
 
-  it('cpuThrow_neverFouls_acrossManySeeds', () => {
+  it('cpuThrow_neverFouls_acrossManySeeds', async () => {
     // 機能設計書「CPU 投擲」: ゆらぎ最大でも投げ込み失敗（自滅）しないこと
     for (let seed = 0; seed < 30; seed++) {
-      const { verdict } = runBattle(seed, { x: 0, y: 180 });
+      const { verdict } = await runBattle(seed, { x: 0, y: 180 });
       const cpuFouled = verdict.outcome === 'playerWin' && verdict.reason === 'foul';
       expect(cpuFouled).toBe(false);
     }
   }, 120000);
 
-  it('weakSideThrow_playerFallsOff_cpuWins', () => {
-    // トコと反対方向へ弱く投げる → プレイヤーは接地せず場外 = foul で CPU の勝ち
-    const { verdict } = runBattle(3, { x: -240, y: -60 });
+  it('backwardFullPowerThrow_playerFliesOut_cpuWinsByFoul', async () => {
+    // トコの真後ろへ全力投げ → プレイヤーは接地せず場外 = foul で CPU の勝ち
+    // （横方向の弱投げは椀の深さで再捕獲されるため、radial に脱出する条件で検証する）
+    const { verdict } = await runBattle(3, { x: 0, y: -240 });
     expect(verdict.outcome).toBe('cpuWin');
     expect(verdict.reason).toBe('foul');
   }, 60000);
 
-  it('sameSeedAndDrag_reproducesSameResult', () => {
-    const a = runBattle(42, { x: 0, y: 200 });
-    const b = runBattle(42, { x: 0, y: 200 });
+  it('sameSeedAndDrag_reproducesSameResult', async () => {
+    const a = await runBattle(42, { x: 0, y: 200 });
+    const b = await runBattle(42, { x: 0, y: 200 });
     expect(a.verdict).toEqual(b.verdict);
     expect(a.steps).toBe(b.steps);
   }, 60000);
