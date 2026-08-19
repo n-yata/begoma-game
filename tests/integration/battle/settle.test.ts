@@ -1,5 +1,6 @@
 import { beforeAll, describe, expect, it } from 'vitest';
 import { PhysicsWorld } from '../../../src/engine/PhysicsWorld';
+import { RING_OUT_MARGIN, TOKO_RADIUS } from '../../../src/game/komaSpecs';
 import { isDefeated, runBattle } from './harness';
 
 beforeAll(async () => {
@@ -29,6 +30,15 @@ describe('headless battle (physics + game logic)', () => {
       }
       if (verdict.outcome !== 'draw') {
         expect(['ringOut', 'spinStop', 'foul']).toContain(verdict.reason);
+      }
+      // 盤外で回り続けない: 決着時、場外になっていないコマは必ずトコ半径内にいる
+      for (const side of ['player', 'cpu'] as const) {
+        const s = finalStates[side];
+        if (!s.ringOut) {
+          expect(Math.hypot(s.position.x, s.position.z)).toBeLessThanOrEqual(
+            TOKO_RADIUS + RING_OUT_MARGIN,
+          );
+        }
       }
     }
   }, 60000);

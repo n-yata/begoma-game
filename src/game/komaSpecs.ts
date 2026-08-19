@@ -14,8 +14,8 @@ export const V_MAX = 4.0;
 export const SPIN_STOP_THRESHOLD = 8;
 /** トコの半径 [m] */
 export const TOKO_RADIUS = 1.5;
-/** 場外判定のマージン [m] */
-export const RING_OUT_MARGIN = 0.25;
+/** 場外判定のマージン [m]。縁を越えたら速やかに場外にする（盤外で回り続けさせない） */
+export const RING_OUT_MARGIN = 0.12;
 /** 床面の高さ [m]（これより一定以上落下で場外） */
 export const FLOOR_Y = 0;
 /** 落下による場外判定のマージン [m] */
@@ -24,12 +24,16 @@ export const FALL_MARGIN = 0.5;
 export const IMPACT_DECAY_FACTOR = 3.0;
 /** 衝突1回あたりの最低削り量 [rad/s]。かすった衝突でも体力が目に見えて減るように */
 export const IMPACT_MIN_DECAY = 5;
+/** 接触が継続する場合に削りを再発生させる間隔 [物理ステップ数]（1秒） */
+export const IMPACT_COOLDOWN_STEPS = 60;
+/** 削りの最短間隔 [物理ステップ数]。接触のちらつきによる多重カウントを防ぐ（0.25秒） */
+export const IMPACT_MIN_GAP_STEPS = 15;
 /** コマの半径 [m]（物理コライダ・描画・接触判定の正本） */
 export const KOMA_RADIUS = 0.11;
 /** コマの半高 [m] */
 export const KOMA_HALF_HEIGHT = 0.055;
 /** 勢い負けノックバック: この回転残量比未満に弱った側が弾き飛ばされ対象になる */
-export const WEAK_SPIN_RATIO = 0.55;
+export const WEAK_SPIN_RATIO = 0.45;
 /**
  * ノックバックが発生する回転劣勢差（残量比の差）のしきい値。
  * 減衰率が隣接するタイプ間の残量比差は最大でも約 0.067（指数減衰の差の最大値）のため、
@@ -37,7 +41,7 @@ export const WEAK_SPIN_RATIO = 0.55;
  */
 export const KNOCKBACK_MIN_GAP = 0.04;
 /** ノックバックで加える追加速度 [m/s]（トコの縁（深さ0.45m）を摩擦込みで越えられる速さ） */
-export const KNOCKBACK_SPEED = 5.2;
+export const KNOCKBACK_SPEED = 4.2;
 /** ノックバック判定の接触距離 [m]（コマ2個分 + 余裕） */
 export const KNOCKBACK_CONTACT_DIST = KOMA_RADIUS * 2 + 0.02;
 /** CPU 投擲の角度ゆらぎ [rad]（±10°） */
@@ -54,7 +58,7 @@ export const KOMA_SPECS: Record<KomaTypeId, KomaSpec> = {
     description: '重く押し負けない。回転の伸びは控えめ',
     mass: 0.045,
     initialSpin: 90,
-    decayRate: 0.08,
+    decayRate: 0.06,
     attack: 1.3,
   },
   speed: {
@@ -63,7 +67,7 @@ export const KOMA_SPECS: Record<KomaTypeId, KomaSpec> = {
     description: '鋭い回転で削り合いに強い。軽く弾かれやすい',
     mass: 0.028,
     initialSpin: 130,
-    decayRate: 0.11,
+    decayRate: 0.085,
     attack: 1.6,
   },
   balance: {
@@ -72,7 +76,7 @@ export const KOMA_SPECS: Record<KomaTypeId, KomaSpec> = {
     description: '重さ・回転・攻めのバランスが良い',
     mass: 0.035,
     initialSpin: 110,
-    decayRate: 0.095,
+    decayRate: 0.072,
     attack: 1.45,
   },
 };

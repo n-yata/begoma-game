@@ -1,7 +1,14 @@
 import type RAPIER_NS from '@dimforge/rapier3d-compat';
 import type { Vec2, Vec3 } from '../types/geometry';
 import type { KomaSpec } from '../types/koma';
-import { FLOOR_Y, KOMA_HALF_HEIGHT, KOMA_RADIUS, TOKO_RADIUS } from '../game/komaSpecs';
+import {
+  FLOOR_Y,
+  IMPACT_COOLDOWN_STEPS,
+  IMPACT_MIN_GAP_STEPS,
+  KOMA_HALF_HEIGHT,
+  KOMA_RADIUS,
+  TOKO_RADIUS,
+} from '../game/komaSpecs';
 import { PhysicsLoadError } from './errors';
 
 export type KomaSide = 'player' | 'cpu';
@@ -23,6 +30,10 @@ const KOMA_FRICTION = 0.05;
 const KOMA_RESTITUTION = 0.7;
 /** コマの線形減衰。強すぎると中央へ滑り寄る前に止まる */
 const KOMA_LINEAR_DAMPING = 0.06;
+/** トコ（円）の外側の崖の深さ [m]。縁を越えたコマを確実に落下させ、盤外で回り続けさせない */
+const OUTSIDE_CLIFF_DEPTH = 4;
+/** 接触マニフォールドを「実接触」とみなす距離しきい値 [m]（投機的接触の除外） */
+const CONTACT_DIST_EPSILON = 1e-3;
 /** 物理の固定タイムステップ [s]（60Hz） */
 export const FIXED_DT = 1 / 60;
 
@@ -56,6 +67,7 @@ export interface PhysicsStepResult {
 
 interface KomaBody {
   body: RAPIER_NS.RigidBody;
+  collider: RAPIER_NS.Collider;
   colliderHandle: number;
 }
 
@@ -69,6 +81,10 @@ export class PhysicsWorld {
   private eventQueue: RAPIER_NS.EventQueue;
   private tokoColliderHandle: number;
   private komaBodies = new Map<KomaSide, KomaBody>();
+  /** 前ステップでコマ同士が接触していたか（新規接触のエッジ検出用） */
+  private wasInContact = false;
+  /** 最後に削りを発生させてからの経過ステップ数（多重カウント・連続削りの間隔制御） */
+  private stepsSinceImpact = Number.MAX_SAFE_INTEGER;
 
   private constructor(private RAPIER: typeof RAPIER_NS) {
     this.world = new RAPIER.World({ x: 0, y: -9.81, z: 0 });
@@ -95,7 +111,11 @@ export class PhysicsWorld {
     throw new PhysicsLoadError(lastError);
   }
 
-  /** 椀状トコを heightfield コライダとして構築する。範囲外は奈落（落下→場外判定） */
+  /**
+   * 椀状トコを heightfield コライダとして構築する。
+   * heightfield は正方形のため、円形のトコ半径の外側（四隅の帯）は崖にして
+   * 「見えない平地」を消す（縁を越えたコマは物理的に落下し場外になる）。
+   */
   private buildToko(): number {
     const n = 40;
     const size = TOKO_RADIUS * 2;
@@ -104,7 +124,9 @@ export class PhysicsWorld {
       for (let j = 0; j <= n; j++) {
         const x = (i / n - 0.5) * size;
         const z = (j / n - 0.5) * size;
-        heights[j * (n + 1) + i] = tokoHeightAt(Math.hypot(x, z));
+        const r = Math.hypot(x, z);
+        heights[j * (n + 1) + i] =
+          r > TOKO_RADIUS ? FLOOR_Y - OUTSIDE_CLIFF_DEPTH : tokoHeightAt(r);
       }
     }
     const body = this.world.createRigidBody(this.RAPIER.RigidBodyDesc.fixed());
@@ -125,7 +147,8 @@ export class PhysicsWorld {
       this.RAPIER.RigidBodyDesc.dynamic()
         .setTranslation(position.x, position.y, position.z)
         .lockRotations()
-        .setLinearDamping(KOMA_LINEAR_DAMPING),
+        .setLinearDamping(KOMA_LINEAR_DAMPING)
+        .setCcdEnabled(true),
     );
     const collider = this.world.createCollider(
       this.RAPIER.ColliderDesc.cylinder(KOMA_HALF_HEIGHT, KOMA_RADIUS)
@@ -135,7 +158,8 @@ export class PhysicsWorld {
       body,
     );
     collider.setActiveEvents(this.RAPIER.ActiveEvents.COLLISION_EVENTS);
-    this.komaBodies.set(side, { body, colliderHandle: collider.handle });
+    this.komaBodies.set(side, { body, collider, colliderHandle: collider.handle });
+    this.resetImpactTracking();
   }
 
   private removeKoma(side: KomaSide): void {
@@ -150,6 +174,12 @@ export class PhysicsWorld {
   reset(): void {
     this.removeKoma('player');
     this.removeKoma('cpu');
+    this.resetImpactTracking();
+  }
+
+  private resetImpactTracking(): void {
+    this.wasInContact = false;
+    this.stepsSinceImpact = Number.MAX_SAFE_INTEGER;
   }
 
   /** 水平初速を与える（投擲）。velocity は水平面ベクトル（x, z） */
@@ -179,6 +209,21 @@ export class PhysicsWorld {
     );
   }
 
+  /** コマ同士が実際に接触しているか（接触マニフォールドを距離しきい値で確認） */
+  private komaInContact(player: KomaBody | undefined, cpu: KomaBody | undefined): boolean {
+    if (!player || !cpu) return false;
+    let touching = false;
+    this.world.contactPair(player.collider, cpu.collider, (manifold) => {
+      for (let i = 0; i < manifold.numContacts(); i++) {
+        if (manifold.contactDist(i) <= CONTACT_DIST_EPSILON) {
+          touching = true;
+          return;
+        }
+      }
+    });
+    return touching;
+  }
+
   /** 1固定ステップ進め、観測結果を返す */
   step(): PhysicsStepResult {
     const player = this.komaBodies.get('player');
@@ -198,7 +243,6 @@ export class PhysicsWorld {
     this.world.step(this.eventQueue);
 
     const touched: Record<KomaSide, boolean> = { player: false, cpu: false };
-    let komaImpact: KomaImpact | null = null;
 
     this.eventQueue.drainCollisionEvents((h1, h2, started) => {
       if (!started) return;
@@ -208,13 +252,25 @@ export class PhysicsWorld {
 
       if (involves(player) && involvesToko) touched.player = true;
       if (involves(cpu) && involvesToko) touched.cpu = true;
-      if (player && cpu && involves(player) && involves(cpu) && preRelVel) {
+    });
+
+    // コマ同士の当たりは衝突イベントではなく接触マニフォールド（実接触状態）で判定する。
+    // イベント（接触開始）だけでは、接触したまま押し合う状況で再発火せず削りが入らない
+    const inContactNow = this.komaInContact(player, cpu);
+    let komaImpact: KomaImpact | null = null;
+    if (this.stepsSinceImpact < Number.MAX_SAFE_INTEGER) this.stepsSinceImpact++;
+    if (inContactNow && preRelVel) {
+      const freshContact = !this.wasInContact;
+      const grindRetrigger = this.stepsSinceImpact >= IMPACT_COOLDOWN_STEPS;
+      if ((freshContact || grindRetrigger) && this.stepsSinceImpact >= IMPACT_MIN_GAP_STEPS) {
         komaImpact = {
           magnitude: Math.hypot(preRelVel.x, preRelVel.y, preRelVel.z),
           relativeVelocity: { x: preRelVel.x, z: preRelVel.z },
         };
+        this.stepsSinceImpact = 0;
       }
-    });
+    }
+    this.wasInContact = inContactNow;
 
     const posOf = (side: KomaSide): Vec3 => {
       const koma = this.komaBodies.get(side);
