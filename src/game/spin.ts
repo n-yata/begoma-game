@@ -1,6 +1,7 @@
 import type { KomaSpec } from '../types/koma';
 import {
   IMPACT_DECAY_FACTOR,
+  IMPACT_MIN_DECAY,
   KNOCKBACK_CONTACT_DIST,
   KNOCKBACK_MIN_GAP,
   KNOCKBACK_SPEED,
@@ -18,10 +19,12 @@ export function decaySpin(spin: number, spec: KomaSpec, dt: number): number {
 
 /**
  * 衝突減衰: 衝突強度と相手の攻撃補正に応じて回転を削る。
- * spin' = spin - impactMag * IMPACT_DECAY_FACTOR * attackerAttack。0 未満にはならない。
+ * 削り量 = max(IMPACT_MIN_DECAY, impactMag * IMPACT_DECAY_FACTOR * attackerAttack)。
+ * かすった衝突でも最低チップ量は必ず削れる（体力が減る手応えのため）。0 未満にはならない。
  */
 export function applyImpactDecay(spin: number, impactMag: number, attackerAttack: number): number {
-  return Math.max(0, spin - impactMag * IMPACT_DECAY_FACTOR * attackerAttack);
+  const chip = Math.max(IMPACT_MIN_DECAY, impactMag * IMPACT_DECAY_FACTOR * attackerAttack);
+  return Math.max(0, spin - chip);
 }
 
 /** 停止判定: しきい値「未満」で停止（ちょうどは停止しない） */
