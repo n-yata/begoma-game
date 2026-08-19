@@ -1,6 +1,18 @@
 import { describe, expect, it } from 'vitest';
 import { KOMA_SPECS, SPIN_STOP_THRESHOLD } from '../../../src/game/komaSpecs';
-import { applyImpactDecay, decaySpin, isStopped, resolveAttacker } from '../../../src/game/spin';
+import {
+  applyImpactDecay,
+  computeKnockback,
+  decaySpin,
+  isStopped,
+  resolveAttacker,
+} from '../../../src/game/spin';
+import {
+  KNOCKBACK_CONTACT_DIST,
+  KNOCKBACK_MIN_GAP,
+  KNOCKBACK_SPEED,
+  WEAK_SPIN_RATIO,
+} from '../../../src/game/komaSpecs';
 
 const spec = KOMA_SPECS.balance;
 
@@ -63,6 +75,34 @@ describe('resolveAttacker', () => {
 
   it('zeroRelativeVelocity_isNeutral', () => {
     expect(resolveAttacker({ x: 0, z: 0 }, playerPos, cpuPos)).toBeNull();
+  });
+});
+
+describe('computeKnockback', () => {
+  const weak = WEAK_SPIN_RATIO - 0.1;
+  const strong = weak + KNOCKBACK_MIN_GAP + 0.05;
+  const touching = KNOCKBACK_CONTACT_DIST - 0.01;
+
+  it('weakSideInContact_getsKnockedBack', () => {
+    const knock = computeKnockback(touching, weak, strong);
+    expect(knock).toEqual({ target: 'player', deltaV: KNOCKBACK_SPEED });
+  });
+
+  it('weakCpuSide_cpuIsTarget', () => {
+    const knock = computeKnockback(touching, strong, weak);
+    expect(knock?.target).toBe('cpu');
+  });
+
+  it('notTouching_noKnockback', () => {
+    expect(computeKnockback(KNOCKBACK_CONTACT_DIST + 0.01, weak, strong)).toBeNull();
+  });
+
+  it('bothHealthy_noKnockback', () => {
+    expect(computeKnockback(touching, WEAK_SPIN_RATIO + 0.01, WEAK_SPIN_RATIO + 0.2)).toBeNull();
+  });
+
+  it('evenMatch_gapBelowThreshold_noKnockback', () => {
+    expect(computeKnockback(touching, weak, weak + KNOCKBACK_MIN_GAP - 0.01)).toBeNull();
   });
 });
 

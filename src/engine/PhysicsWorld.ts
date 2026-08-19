@@ -1,17 +1,28 @@
 import type RAPIER_NS from '@dimforge/rapier3d-compat';
 import type { Vec2, Vec3 } from '../types/geometry';
 import type { KomaSpec } from '../types/koma';
-import { FLOOR_Y, TOKO_RADIUS } from '../game/komaSpecs';
+import { FLOOR_Y, KOMA_HALF_HEIGHT, KOMA_RADIUS, TOKO_RADIUS } from '../game/komaSpecs';
 import { PhysicsLoadError } from './errors';
 
 export type KomaSide = 'player' | 'cpu';
 
-/** トコ（椀）の窪みの深さ [m]。SceneAssets の描画形状と一致させること */
-export const TOKO_DEPTH = 0.18;
-/** コマのコライダ半径 [m] */
-export const KOMA_RADIUS = 0.07;
-/** コマのコライダ半高 [m] */
-export const KOMA_HALF_HEIGHT = 0.035;
+/**
+ * トコ（椀）の窪みの深さ [m]。SceneAssets の描画形状と一致させること。
+ * 縁の傾斜（最大 約25°）が摩擦角を上回り、コマが必ず中央へ滑り寄る値にしている
+ */
+export const TOKO_DEPTH = 0.24;
+// コマの寸法の正本は game 層（komaSpecs.ts）。接触判定の距離定数と一致させるため
+export { KOMA_HALF_HEIGHT, KOMA_RADIUS };
+/** トコ表面の摩擦。摩擦角（約3°）< 斜面勾配 とし、静止摩擦で止まらないようにする */
+const TOKO_FRICTION = 0.05;
+/** トコ表面の反発。跳ねすぎると場外が出やすくなる */
+const TOKO_RESTITUTION = 0.15;
+/** コマの摩擦 */
+const KOMA_FRICTION = 0.05;
+/** コマ同士の反発。高すぎると初回衝突で即場外になり、ぶつかり合いが楽しめない */
+const KOMA_RESTITUTION = 0.7;
+/** コマの線形減衰。強すぎると中央へ滑り寄る前に止まる */
+const KOMA_LINEAR_DAMPING = 0.06;
 /** 物理の固定タイムステップ [s]（60Hz） */
 export const FIXED_DT = 1 / 60;
 
@@ -99,8 +110,8 @@ export class PhysicsWorld {
     const body = this.world.createRigidBody(this.RAPIER.RigidBodyDesc.fixed());
     const collider = this.world.createCollider(
       this.RAPIER.ColliderDesc.heightfield(n, n, heights, { x: size, y: 1, z: size })
-        .setFriction(0.25)
-        .setRestitution(0.4),
+        .setFriction(TOKO_FRICTION)
+        .setRestitution(TOKO_RESTITUTION),
       body,
     );
     collider.setActiveEvents(this.RAPIER.ActiveEvents.COLLISION_EVENTS);
@@ -114,13 +125,13 @@ export class PhysicsWorld {
       this.RAPIER.RigidBodyDesc.dynamic()
         .setTranslation(position.x, position.y, position.z)
         .lockRotations()
-        .setLinearDamping(0.18),
+        .setLinearDamping(KOMA_LINEAR_DAMPING),
     );
     const collider = this.world.createCollider(
       this.RAPIER.ColliderDesc.cylinder(KOMA_HALF_HEIGHT, KOMA_RADIUS)
         .setMass(spec.mass)
-        .setFriction(0.15)
-        .setRestitution(0.85),
+        .setFriction(KOMA_FRICTION)
+        .setRestitution(KOMA_RESTITUTION),
       body,
     );
     collider.setActiveEvents(this.RAPIER.ActiveEvents.COLLISION_EVENTS);
@@ -146,6 +157,26 @@ export class PhysicsWorld {
     const koma = this.komaBodies.get(side);
     if (!koma) return;
     koma.body.setLinvel({ x: velocity.x, y: 0, z: velocity.y }, true);
+  }
+
+  /**
+   * 水平方向の追加速度を与える（勢い負けノックバック用）。
+   * direction は正規化不要（内部で正規化する）。ゼロベクトルなら何もしない
+   */
+  addHorizontalVelocity(side: KomaSide, direction: { x: number; z: number }, deltaV: number): void {
+    const koma = this.komaBodies.get(side);
+    if (!koma) return;
+    const len = Math.hypot(direction.x, direction.z);
+    if (len === 0) return;
+    const v = koma.body.linvel();
+    koma.body.setLinvel(
+      {
+        x: v.x + (direction.x / len) * deltaV,
+        y: v.y,
+        z: v.z + (direction.z / len) * deltaV,
+      },
+      true,
+    );
   }
 
   /** 1固定ステップ進め、観測結果を返す */

@@ -3,7 +3,7 @@ import type { Vec2 } from './types/geometry';
 import type { KomaState } from './types/koma';
 import { KOMA_SPECS } from './game/komaSpecs';
 import { computeThrow } from './game/throwCalc';
-import { applyImpactDecay, decaySpin, resolveAttacker } from './game/spin';
+import { applyImpactDecay, computeKnockback, decaySpin, resolveAttacker } from './game/spin';
 import { judge, updateKomaStatus } from './game/judge';
 import { decideCpuThrow } from './game/cpu';
 import { createRng } from './game/random';
@@ -205,6 +205,28 @@ function main(): void {
       player: updateKomaStatus(states.player, playerSpin, result.koma.player),
       cpu: updateKomaStatus(states.cpu, cpuSpin, result.koma.cpu),
     };
+
+    // 勢い負けノックバック: 弱った側は接触していると相手から離れる方向へ弾き飛ばされる
+    const distance = Math.hypot(
+      states.player.position.x - states.cpu.position.x,
+      states.player.position.z - states.cpu.position.z,
+    );
+    const knock = computeKnockback(
+      distance,
+      states.player.spin / initialSpins.player,
+      states.cpu.spin / initialSpins.cpu,
+    );
+    if (knock) {
+      const other = knock.target === 'player' ? 'cpu' : 'player';
+      physics.addHorizontalVelocity(
+        knock.target,
+        {
+          x: states[knock.target].position.x - states[other].position.x,
+          z: states[knock.target].position.z - states[other].position.z,
+        },
+        knock.deltaV,
+      );
+    }
 
     battleScreen.playerGauge.update(states.player.spin / initialSpins.player);
     battleScreen.cpuGauge.update(states.cpu.spin / initialSpins.cpu);
