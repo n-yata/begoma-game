@@ -131,14 +131,18 @@ spin0 = spec.initialSpin * (0.8 + 0.2 * p)
 **計算式（まとめ）**:
 ```
 自然減衰: spin' = spin * (1 - decayRate * dt)
-衝突減衰: spin' = spin - impactMag * (相手の攻撃補正)
+衝突減衰: spin' = spin - max(最低チップ量, impactMag * 係数 * 相手の攻撃補正)
 停止:     spin < spinStopThreshold → stopped = true
 ```
+
+> 最低チップ量（IMPACT_MIN_DECAY）: かすった衝突でも体力（回転）が目に見えて減るための下限
+> （2026-08-20 のプレイフィードバックで追加）。定数の具体値は `src/game/komaSpecs.ts` が正本。
 
 **エッジケース（テスト対象）**:
 - しきい値ちょうど（`spin == spinStopThreshold`）→ 停止しない（未満で停止）
 - 1ステップで双方停止 → 引き分け判定へ
 - 減衰率 0・攻撃補正 0 のパラメータでも発散しない
+- 攻撃補正 0・衝突強度 0 でも、衝突と判定されれば最低チップ量は削れる
 
 ### アルゴリズム: 勢い負けノックバック
 

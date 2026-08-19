@@ -10,7 +10,7 @@ export type KomaSide = 'player' | 'cpu';
  * トコ（椀）の窪みの深さ [m]。SceneAssets の描画形状と一致させること。
  * 縁の傾斜（最大 約25°）が摩擦角を上回り、コマが必ず中央へ滑り寄る値にしている
  */
-export const TOKO_DEPTH = 0.24;
+export const TOKO_DEPTH = 0.45;
 // コマの寸法の正本は game 層（komaSpecs.ts）。接触判定の距離定数と一致させるため
 export { KOMA_HALF_HEIGHT, KOMA_RADIUS };
 /** トコ表面の摩擦。摩擦角（約3°）< 斜面勾配 とし、静止摩擦で止まらないようにする */

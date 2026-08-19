@@ -8,6 +8,7 @@ import {
   resolveAttacker,
 } from '../../../src/game/spin';
 import {
+  IMPACT_MIN_DECAY,
   KNOCKBACK_CONTACT_DIST,
   KNOCKBACK_MIN_GAP,
   KNOCKBACK_SPEED,
@@ -42,13 +43,22 @@ describe('applyImpactDecay', () => {
   });
 
   it('strongerAttack_removesMoreSpin', () => {
-    const weak = applyImpactDecay(100, 1, KOMA_SPECS.heavy.attack);
-    const strong = applyImpactDecay(100, 1, KOMA_SPECS.speed.attack);
+    // 最低チップに丸められない強さの衝突で比較する
+    const weak = applyImpactDecay(100, 3, KOMA_SPECS.heavy.attack);
+    const strong = applyImpactDecay(100, 3, KOMA_SPECS.speed.attack);
     expect(strong).toBeLessThan(weak);
   });
 
-  it('zeroAttack_removesNothing', () => {
-    expect(applyImpactDecay(100, 5, 0)).toBe(100);
+  it('weakImpact_stillChipsMinimumAmount', () => {
+    // かすった衝突（計算上の削りが最低チップ未満）でも IMPACT_MIN_DECAY は削れる
+    expect(applyImpactDecay(100, 0.1, 0)).toBe(100 - IMPACT_MIN_DECAY);
+    expect(applyImpactDecay(100, 0, spec.attack)).toBe(100 - IMPACT_MIN_DECAY);
+  });
+
+  it('strongImpact_exceedsMinimumChip', () => {
+    // 強い衝突では比例式が最低チップを上回る
+    const after = applyImpactDecay(100, 3, spec.attack);
+    expect(100 - after).toBeGreaterThan(IMPACT_MIN_DECAY);
   });
 
   it('neverGoesNegative', () => {

@@ -2,27 +2,64 @@ import * as THREE from 'three';
 import { TOKO_RADIUS } from '../game/komaSpecs';
 import { KOMA_HALF_HEIGHT, KOMA_RADIUS, TOKO_DEPTH, tokoHeightAt } from './PhysicsWorld';
 
+/** 椀の内面色（縁）。底は DEPTH_DARKEN 分だけ暗くする */
+const BOWL_RIM_COLOR = new THREE.Color(0x9a7a52);
+/** 底の暗さ（0〜1。深いほど暗くして窪みを見せる） */
+const DEPTH_DARKEN = 0.55;
+/** 等高線リングの半径（曲面の可視化） */
+const CONTOUR_RADII = [0.35, 0.7, 1.05, 1.35];
+
 /** 椀状トコのメッシュを生成する。高さ関数は物理（tokoHeightAt）と共有 */
 export function createTokoMesh(): THREE.Group {
   const group = new THREE.Group();
 
-  // 椀の内面: 半径方向のプロファイルを LatheGeometry で回転させる
-  const segments = 32;
+  // 椀の内面: 半径方向のプロファイルを LatheGeometry で回転させ、
+  // 深さに応じた頂点カラー（底ほど暗い）で窪みを視覚化する
+  const segments = 48;
   const points: THREE.Vector2[] = [];
   for (let i = 0; i <= segments; i++) {
     const r = (i / segments) * TOKO_RADIUS;
     points.push(new THREE.Vector2(r, tokoHeightAt(r)));
   }
+  const bowlGeometry = new THREE.LatheGeometry(points, 64);
+  const positions = bowlGeometry.getAttribute('position');
+  const colors = new Float32Array(positions.count * 3);
+  const color = new THREE.Color();
+  for (let i = 0; i < positions.count; i++) {
+    const depthRatio = Math.min(1, Math.max(0, -positions.getY(i) / TOKO_DEPTH));
+    color.copy(BOWL_RIM_COLOR).multiplyScalar(1 - DEPTH_DARKEN * depthRatio);
+    colors[i * 3] = color.r;
+    colors[i * 3 + 1] = color.g;
+    colors[i * 3 + 2] = color.b;
+  }
+  bowlGeometry.setAttribute('color', new THREE.BufferAttribute(colors, 3));
   const bowl = new THREE.Mesh(
-    new THREE.LatheGeometry(points, 48),
-    new THREE.MeshStandardMaterial({ color: 0x8a6b46, roughness: 0.85, side: THREE.DoubleSide }),
+    bowlGeometry,
+    new THREE.MeshStandardMaterial({
+      vertexColors: true,
+      roughness: 0.85,
+      side: THREE.DoubleSide,
+    }),
   );
   bowl.receiveShadow = true;
   group.add(bowl);
 
+  // 等高線リング: 曲面であることを読み取れるように薄い線を同心円状に置く
+  const contourMaterial = new THREE.MeshBasicMaterial({
+    color: 0x4a3a26,
+    transparent: true,
+    opacity: 0.45,
+  });
+  for (const r of CONTOUR_RADII) {
+    const ring = new THREE.Mesh(new THREE.TorusGeometry(r, 0.008, 6, 64), contourMaterial);
+    ring.rotation.x = Math.PI / 2;
+    ring.position.y = tokoHeightAt(r) + 0.004;
+    group.add(ring);
+  }
+
   // 縁のリング（樽の縁）
   const rim = new THREE.Mesh(
-    new THREE.TorusGeometry(TOKO_RADIUS, 0.05, 12, 48),
+    new THREE.TorusGeometry(TOKO_RADIUS, 0.06, 12, 64),
     new THREE.MeshStandardMaterial({ color: 0x5b4630, roughness: 0.9 }),
   );
   rim.rotation.x = Math.PI / 2;
