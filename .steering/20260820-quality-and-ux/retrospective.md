@@ -15,7 +15,7 @@ Playwright E2E（UC-01 通し・中断導線・WebGL フォールバック）、
 
 - 対象リポジトリ: 本リポジトリ
 - ブランチ: feature/quality-and-ux
-- コミット: （マージ後に追記）
+- コミット: 5bd829c（マージ後に検証パス）
 
 ## セキュリティレビュー（security-engineer）の結果
 
