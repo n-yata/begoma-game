@@ -110,6 +110,7 @@ function main(): void {
   const battleScreen = new BattleScreen(overlay);
   const resultScreen = new ResultScreen(
     overlay,
+    safe(() => sm.nextRound()),
     safe(() => sm.rematch()),
     safe(() => sm.backToSelect()),
   );
@@ -272,7 +273,7 @@ function main(): void {
         break;
       case 'result':
         battleScreen.hide();
-        if (sm.verdict) resultScreen.showVerdict(sm.verdict);
+        if (sm.verdict) resultScreen.showVerdict(sm.verdict, sm.score, sm.matchOutcome);
         break;
       case 'title':
         battleScreen.hide();

@@ -1,9 +1,15 @@
-import type { Verdict } from '../types/match';
+import type { MatchOutcome, Verdict } from '../types/match';
+import type { RoundScore } from '../game/MatchStateMachine';
 
 const OUTCOME_TEXT: Record<Verdict['outcome'], { text: string; cls: string }> = {
   playerWin: { text: 'きみの勝ち！', cls: 'result-title--win' },
   cpuWin: { text: 'まけた…', cls: 'result-title--lose' },
   draw: { text: 'ひきわけ', cls: 'result-title--draw' },
+};
+
+const MATCH_OUTCOME_TEXT: Record<Exclude<MatchOutcome, 'draw'>, { text: string; cls: string }> = {
+  playerWin: { text: 'マッチ勝利！', cls: 'result-title--win' },
+  cpuWin: { text: 'マッチ敗北…', cls: 'result-title--lose' },
 };
 
 function reasonText(verdict: Verdict): string {
@@ -20,13 +26,26 @@ function reasonText(verdict: Verdict): string {
   }
 }
 
-/** リザルト画面。勝敗・決着理由と再戦導線 */
+/**
+ * リザルト画面。ラウンド決着とマッチ決着で表示を出し分ける。
+ * - マッチ未決着: ラウンド結果・スコア・「次のラウンドへ」
+ * - マッチ決着: 最終勝敗・スコア・「同じコマで再戦」「コマ選択へ」
+ */
 export class ResultScreen {
   private root: HTMLDivElement;
   private title: HTMLDivElement;
   private reason: HTMLDivElement;
+  private score: HTMLDivElement;
+  private nextRoundBtn: HTMLButtonElement;
+  private rematchBtn: HTMLButtonElement;
+  private backBtn: HTMLButtonElement;
 
-  constructor(parent: HTMLElement, onRematch: () => void, onBackToSelect: () => void) {
+  constructor(
+    parent: HTMLElement,
+    onNextRound: () => void,
+    onRematch: () => void,
+    onBackToSelect: () => void,
+  ) {
     this.root = document.createElement('div');
     this.root.className = 'screen screen--dim';
 
@@ -38,26 +57,41 @@ export class ResultScreen {
     this.reason.className = 'result-reason';
     this.root.appendChild(this.reason);
 
-    const rematch = document.createElement('button');
-    rematch.className = 'btn';
-    rematch.textContent = '同じコマで再戦';
-    rematch.addEventListener('click', onRematch);
-    this.root.appendChild(rematch);
+    this.score = document.createElement('div');
+    this.score.className = 'result-score';
+    this.root.appendChild(this.score);
 
-    const back = document.createElement('button');
-    back.className = 'btn btn--sub';
-    back.textContent = 'コマ選択へ';
-    back.addEventListener('click', onBackToSelect);
-    this.root.appendChild(back);
+    this.nextRoundBtn = document.createElement('button');
+    this.nextRoundBtn.className = 'btn';
+    this.nextRoundBtn.textContent = '次のラウンドへ';
+    this.nextRoundBtn.addEventListener('click', onNextRound);
+    this.root.appendChild(this.nextRoundBtn);
+
+    this.rematchBtn = document.createElement('button');
+    this.rematchBtn.className = 'btn';
+    this.rematchBtn.textContent = '同じコマで再戦';
+    this.rematchBtn.addEventListener('click', onRematch);
+    this.root.appendChild(this.rematchBtn);
+
+    this.backBtn = document.createElement('button');
+    this.backBtn.className = 'btn btn--sub';
+    this.backBtn.textContent = 'コマ選択へ';
+    this.backBtn.addEventListener('click', onBackToSelect);
+    this.root.appendChild(this.backBtn);
 
     parent.appendChild(this.root);
   }
 
-  showVerdict(verdict: Verdict): void {
-    const outcome = OUTCOME_TEXT[verdict.outcome];
-    this.title.textContent = outcome.text;
-    this.title.className = `result-title ${outcome.cls}`;
+  showVerdict(verdict: Verdict, score: RoundScore, matchOutcome: MatchOutcome | null): void {
+    const decided = matchOutcome !== null && matchOutcome !== 'draw';
+    const heading = decided ? MATCH_OUTCOME_TEXT[matchOutcome] : OUTCOME_TEXT[verdict.outcome];
+    this.title.textContent = heading.text;
+    this.title.className = `result-title ${heading.cls}`;
     this.reason.textContent = verdict.outcome === 'draw' ? '同時に決着！' : reasonText(verdict);
+    this.score.textContent = `あなた ${String(score.player)} - ${String(score.cpu)} CPU`;
+    this.nextRoundBtn.style.display = decided ? 'none' : '';
+    this.rematchBtn.style.display = decided ? '' : 'none';
+    this.backBtn.style.display = decided ? '' : 'none';
     this.root.style.display = 'flex';
   }
 
