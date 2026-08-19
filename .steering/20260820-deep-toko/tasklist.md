@@ -23,5 +23,4 @@
 - [x] 振り返り記録（retrospective.md）
 - [x] セキュリティレビュー（クルトワ）: Critical/High 0件。Medium 1件
       （.claude/worktrees/ の gitignore 漏れ）→ 対応済み
-- [ ] コミット（対象ファイル明示指定。worktree のラウンド制作業は含めない）→
-      main へマージ → ブランチ削除
+- [x] コミット（1b0c060。対象ファイル明示指定）→ main へマージ → ブランチ削除

@@ -14,7 +14,7 @@
 
 - 対象リポジトリ: 本リポジトリ
 - ブランチ: feature/deep-toko
-- コミット: （コミット後に追記）
+- コミット: 1b0c0606a1befc6f06ffded87de0515a89a79bfa
 
 ## セキュリティレビュー（security-engineer）の結果
 
