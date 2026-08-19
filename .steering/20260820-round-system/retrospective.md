@@ -14,7 +14,7 @@
 
 - 対象リポジトリ: 本リポジトリ
 - ブランチ: feature/round-system
-- コミット: （マージ後に追記）
+- コミット: fbda652（マージ: d27249b）
 
 ## セキュリティレビュー（security-engineer）の結果
 
