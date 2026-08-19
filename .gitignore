@@ -23,6 +23,9 @@ id_rsa*
 # 否定パターンは後勝ちのため、必ず .env.* より後に書く
 !.env.example
 
+# サブエージェント用の一時 git worktree（埋め込みリポジトリの誤コミット防止）
+.claude/worktrees/
+
 # Claude Code のマシンローカル設定・一時ファイル
 # session-env/ は環境変数の値を含みうるため、必ず除外する
 # スラッシュを含むパターンは .gitignore からの相対パスにアンカーされるため、
